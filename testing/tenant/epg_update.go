@@ -2,7 +2,7 @@ package main
 
 import (
     "flag"
-    "log"
+    "fmt"
 
     "github.com/patrikbolt/crossplane_provider_cisco_aci/internal/clients"
     "github.com/patrikbolt/crossplane_provider_cisco_aci/internal/clients/tenant/epg"
@@ -15,20 +15,23 @@ func main() {
     tenant := flag.String("tenant", "", "Tenant name")
     appProfile := flag.String("app-profile", "", "Application Profile name")
     epgName := flag.String("epg-name", "", "EPG name")
-    desc := flag.String("desc", "", "New description")
+    desc := flag.String("desc", "", "EPG description")
+    bd := flag.String("bd", "", "Bridge domain name")
     skipSSLVerify := flag.Bool("skip-ssl-verify", false, "Skip SSL verification (insecure)")
     flag.Parse()
 
+    // Create the ACI client
     client := clients.NewClient(*baseURL, *username, *password, *skipSSLVerify)
-    if err := client.Authenticate(); err != nil {
-        log.Fatalf("Authentication failed: %v", err)
-    }
 
+    // Create the EPG client
     epgClient := epg.NewEPGClient(client)
-    err := epgClient.UpdateEPG(*tenant, *appProfile, *epgName, *desc)
+
+    // Update the EPG with the specified parameters
+    err := epgClient.UpdateEPG(*tenant, *appProfile, *epgName, *bd, *desc)
     if err != nil {
-        log.Fatalf("Failed to update EPG: %v", err)
+        fmt.Printf("Error updating EPG: %v\n", err)
+    } else {
+        fmt.Println("EPG updated successfully!")
     }
-    fmt.Println("EPG updated successfully!")
 }
 
