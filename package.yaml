@@ -1,0 +1,8 @@
+apiVersion: meta.pkg.crossplane.io/v1
+kind: Provider
+metadata:
+  name: crossplane-cisco-aci
+spec:
+  controller:
+    image: ghcr.io/patrikbolt/crossplane_cisco_aci:0.1.0
+
