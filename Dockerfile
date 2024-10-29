@@ -4,7 +4,7 @@ FROM golang:1.21 AS builder
 WORKDIR /workspace
 
 # Kopiert package.yaml ins Arbeitsverzeichnis
-COPY package.yaml /workspace/
+COPY package.yaml /
 
 # Kopiere die Go-Moduldateien und lade die Abhängigkeiten
 COPY go.mod go.sum ./
