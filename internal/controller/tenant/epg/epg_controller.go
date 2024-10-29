@@ -7,11 +7,10 @@ import (
     "sigs.k8s.io/controller-runtime/pkg/controller"
     "sigs.k8s.io/controller-runtime/pkg/client"
     "github.com/crossplane/crossplane-runtime/pkg/resource"
-    "github.com/crossplane/crossplane-runtime/pkg/logging"
     "github.com/pkg/errors"
 
     "github.com/patrikbolt/crossplane_provider_cisco_aci/apis/tenant/epg/v1alpha1"
-    "github.com/patrikbolt/crossplane_provider_cisco_aci/internal/clients"
+    "github.com/patrikbolt/crossplane_provider_cisco_aci/internal/clients/tenant/epg"
 )
 
 func Setup(mgr ctrl.Manager, o controller.Options) error {
@@ -22,13 +21,13 @@ func Setup(mgr ctrl.Manager, o controller.Options) error {
         For(&v1alpha1.EPG{}).
         Complete(resource.NewManagedReconciler(mgr,
             resource.ManagedKind(v1alpha1.EPGGroupVersionKind),
-            resource.WithExternalConnecter(&connector{kube: mgr.GetClient(), newClientFn: clients.NewClient}),
+            resource.WithExternalConnecter(&connector{kube: mgr.GetClient(), newClientFn: epg.NewEPGClient}),
             o))
 }
 
 type connector struct {
     kube        client.Client
-    newClientFn func(config *clients.ACIConfig) (*clients.ACIClient, error)
+    newClientFn func(config *epg.EPGConfig) (*epg.EPGClient, error)
 }
 
 func (c *connector) Connect(ctx context.Context, mg resource.Managed) (resource.ExternalClient, error) {
@@ -42,16 +41,16 @@ func (c *connector) Connect(ctx context.Context, mg resource.Managed) (resource.
         return nil, errors.Wrap(err, "cannot get ProviderConfig")
     }
 
-    cfg := clients.NewConfig(pc)
+    cfg := epg.NewConfig(pc)
     client, err := c.newClientFn(cfg)
     if err != nil {
-        return nil, errors.Wrap(err, "cannot create ACI client")
+        return nil, errors.Wrap(err, "cannot create EPG client")
     }
     return &external{client: client}, nil
 }
 
 type external struct {
-    client *clients.ACIClient
+    client *epg.EPGClient
 }
 
 func (c *external) Observe(ctx context.Context, mg resource.Managed) (resource.ExternalObservation, error) {
@@ -60,11 +59,11 @@ func (c *external) Observe(ctx context.Context, mg resource.Managed) (resource.E
         return resource.ExternalObservation{}, errors.New("managed resource is not an EPG")
     }
 
-    observation, err := c.client.ObserveEPG(ctx, cr.Spec.ForProvider)
+    exists, err := c.client.ObserveEPG(ctx, cr.Spec.ForProvider)
     if err != nil {
         return resource.ExternalObservation{}, err
     }
-    return observation, nil
+    return resource.ExternalObservation{ResourceExists: exists}, nil
 }
 
 func (c *external) Create(ctx context.Context, mg resource.Managed) (resource.ExternalCreation, error) {
@@ -73,11 +72,8 @@ func (c *external) Create(ctx context.Context, mg resource.Managed) (resource.Ex
         return resource.ExternalCreation{}, errors.New("managed resource is not an EPG")
     }
 
-    creation, err := c.client.CreateEPG(ctx, cr.Spec.ForProvider)
-    if err != nil {
-        return resource.ExternalCreation{}, err
-    }
-    return creation, nil
+    err := c.client.CreateEPG(ctx, cr.Spec.ForProvider)
+    return resource.ExternalCreation{}, err
 }
 
 func (c *external) Update(ctx context.Context, mg resource.Managed) (resource.ExternalUpdate, error) {
@@ -86,11 +82,8 @@ func (c *external) Update(ctx context.Context, mg resource.Managed) (resource.Ex
         return resource.ExternalUpdate{}, errors.New("managed resource is not an EPG")
     }
 
-    update, err := c.client.UpdateEPG(ctx, cr.Spec.ForProvider)
-    if err != nil {
-        return resource.ExternalUpdate{}, err
-    }
-    return update, nil
+    err := c.client.UpdateEPG(ctx, cr.Spec.ForProvider)
+    return resource.ExternalUpdate{}, err
 }
 
 func (c *external) Delete(ctx context.Context, mg resource.Managed) error {

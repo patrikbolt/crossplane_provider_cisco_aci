@@ -14,7 +14,7 @@ import (
     "github.com/crossplane/crossplane-runtime/pkg/logging"
     "github.com/crossplane/crossplane-runtime/pkg/ratelimiter"
 
-    "github.com/patrikbolt/crossplane_provider_cisco_aci/apis/v1alpha1"
+    "github.com/patrikbolt/crossplane_provider_cisco_aci/apis/tenant/epg/v1alpha1"
     epgcontroller "github.com/patrikbolt/crossplane_provider_cisco_aci/internal/controller/tenant/epg"
 )
 
