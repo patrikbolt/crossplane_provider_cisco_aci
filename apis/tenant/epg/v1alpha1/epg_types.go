@@ -1,6 +1,4 @@
-// In apis/tenant/epg/v1alpha1/epg_types.go
-
-package v1alpha1
+package epg
 
 import (
     metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -20,26 +18,19 @@ type EPGParameters struct {
     AppProfile string `json:"appProfile"`
 }
 
-// EPGStatus represents the observed state of an EPG.
+// EPGStatus defines the observed state of an EPG.
 type EPGStatus struct {
     xpv1.ResourceStatus `json:",inline"`
-    AtProvider          EPGObservation `json:"atProvider,omitempty"`
-}
-
-// EPGObservation are the observable fields of an EPG.
-type EPGObservation struct {
-    ID string `json:"id,omitempty"`
 }
 
 // +kubebuilder:object:root=true
 
-// EPG is the Schema for the EPGs API
+// EPG is the Schema for the EPG API.
 type EPG struct {
     metav1.TypeMeta   `json:",inline"`
     metav1.ObjectMeta `json:"metadata,omitempty"`
-
-    Spec   EPGSpec   `json:"spec"`
-    Status EPGStatus `json:"status,omitempty"`
+    Spec              EPGSpec   `json:"spec"`
+    Status            EPGStatus `json:"status,omitempty"`
 }
 
 // +kubebuilder:object:root=true

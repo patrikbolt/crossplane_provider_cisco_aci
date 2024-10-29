@@ -1,16 +1,16 @@
-// In apis/tenant/epg/v1alpha1/register.go
-
-package v1alpha1
+package epg
 
 import (
-    metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-    "k8s.io/apimachinery/pkg/runtime/schema"
+    "sigs.k8s.io/controller-runtime/pkg/scheme"
+    "k8s.io/apimachinery/pkg/runtime"
 )
 
-// GroupVersion is the group version used to register these objects.
+// SchemeBuilder registers the EPG type with the runtime scheme.
 var (
-    GroupVersion = schema.GroupVersion{Group: "tenant.crossplane.io", Version: "v1alpha1"}
-    SchemeBuilder = &metav1.SchemeBuilder{GroupVersion}
-    AddToScheme = SchemeBuilder.AddToScheme
+    SchemeBuilder = &scheme.Builder{GroupVersion: SchemeGroupVersion}
+    AddToScheme   = SchemeBuilder.AddToScheme
 )
+
+// SchemeGroupVersion defines the group and version for the EPG API.
+var SchemeGroupVersion = runtime.NewSchemeGroupVersion("tenant.acme.org", "v1alpha1")
 

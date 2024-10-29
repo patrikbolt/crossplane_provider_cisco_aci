@@ -37,9 +37,8 @@ import (
     "github.com/crossplane/crossplane-runtime/pkg/ratelimiter"
     "github.com/crossplane/crossplane-runtime/pkg/resource"
 
-    "github.com/patrikbolt/crossplane_provider_cisco_aci/apis" // Passe diesen Pfad an
-    "github.com/patrikbolt/crossplane_provider_cisco_aci/apis/tenant/epg/v1alpha1" // Passe diesen Pfad an
-    epgcontroller "github.com/patrikbolt/crossplane_provider_cisco_aci/internal/controller/tenant/epg" // Passe diesen Pfad an
+    "github.com/patrikbolt/crossplane_provider_cisco_aci/apis/v1alpha1"
+    epgcontroller "github.com/patrikbolt/crossplane_provider_cisco_aci/apis/tenant/epg"
 )
 
 func main() {
@@ -59,7 +58,7 @@ func main() {
     kingpin.MustParse(app.Parse(os.Args[1:]))
 
     zl := zap.New(zap.UseDevMode(*debug))
-    log := logging.NewLogrLogger(zl.WithName("provider-cisco-aci"))
+    log := logging.NewLogrLogger(zl.WithName("provider-template"))
     if *debug {
         ctrl.SetLogger(zl)
     }
@@ -72,13 +71,13 @@ func main() {
             SyncPeriod: syncInterval,
         },
         LeaderElection:             *leaderElection,
-        LeaderElectionID:           "crossplane-leader-election-provider-cisco-aci",
+        LeaderElectionID:           "crossplane-leader-election-provider-template",
         LeaderElectionResourceLock: resourcelock.LeasesResourceLock,
         LeaseDuration:              func() *time.Duration { d := 60 * time.Second; return &d }(),
         RenewDeadline:              func() *time.Duration { d := 50 * time.Second; return &d }(),
     })
     kingpin.FatalIfError(err, "Cannot create controller manager")
-    kingpin.FatalIfError(apis.AddToScheme(mgr.GetScheme()), "Cannot add ACI APIs to scheme")
+    kingpin.FatalIfError(v1alpha1.AddToScheme(mgr.GetScheme()), "Cannot add Template APIs to scheme")
 
     o := controller.Options{
         Logger:                  log,
@@ -89,29 +88,16 @@ func main() {
     }
 
     if *enableExternalSecretStores {
-        o.Features.Enable(feature.Flag("EnableExternalSecretStores"))
-        log.Info("Alpha feature enabled", "flag", "EnableExternalSecretStores")
-
-        kingpin.FatalIfError(resource.Ignore(kerrors.IsAlreadyExists, mgr.GetClient().Create(context.Background(), &v1alpha1.StoreConfig{
-            ObjectMeta: metav1.ObjectMeta{
-                Name: "default",
-            },
-            Spec: v1alpha1.StoreConfigSpec{
-                SecretStoreConfig: xpv1.SecretStoreConfig{
-                    DefaultScope: *namespace,
-                },
-            },
-        })), "cannot create default store config")
+        o.Features.Enable(features.EnableAlphaExternalSecretStores)
+        log.Info("Alpha feature enabled", "flag", features.EnableAlphaExternalSecretStores)
     }
 
     if *enableManagementPolicies {
-        o.Features.Enable(feature.Flag("EnableManagementPolicies"))
-        log.Info("Alpha feature enabled", "flag", "EnableManagementPolicies")
+        o.Features.Enable(features.EnableAlphaManagementPolicies)
+        log.Info("Alpha feature enabled", "flag", features.EnableAlphaManagementPolicies)
     }
 
-    // Setup EPG Controller
     kingpin.FatalIfError(epgcontroller.Setup(mgr, o), "Cannot setup EPG controller")
-
     kingpin.FatalIfError(mgr.Start(ctrl.SetupSignalHandler()), "Cannot start controller manager")
 }
 
