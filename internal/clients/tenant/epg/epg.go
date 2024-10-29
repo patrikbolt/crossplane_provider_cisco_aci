@@ -167,3 +167,26 @@ func (c *EPGClient) DeleteEPG(tenant, appProfile, epgName string) error {
     return nil
 }
 
+// ObserveEPG prüft, ob ein bestimmtes EPG existiert, und gibt den Status zurück
+func (c *EPGClient) ObserveEPG(tenantName, appProfileName, epgName string) (map[string]interface{}, error) {
+    endpoint := fmt.Sprintf("/api/node/mo/uni/tn-%s/ap-%s/epg-%s.json", tenantName, appProfileName, epgName)
+    response, err := c.client.DoRequest("GET", endpoint, nil)
+    if err != nil {
+        return nil, fmt.Errorf("error observing EPG: %w", err)
+    }
+
+    // Die Antwortdaten in eine Map unmarshallen, um den Status zu analysieren
+    var result map[string]interface{}
+    if err := json.Unmarshal(response, &result); err != nil {
+        return nil, fmt.Errorf("error parsing response: %w", err)
+    }
+
+    // Prüfen, ob das EPG in den Daten enthalten ist
+    imdata, ok := result["imdata"].([]interface{})
+    if !ok || len(imdata) == 0 {
+        return nil, fmt.Errorf("EPG %s not found in tenant %s and application profile %s", epgName, tenantName, appProfileName)
+    }
+
+    epgData := imdata[0].(map[string]interface{})
+    return epgData, nil
+}

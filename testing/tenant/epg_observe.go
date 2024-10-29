@@ -2,8 +2,8 @@ package main
 
 import (
     "flag"
-    "log"
     "fmt"
+    "log"
 
     "github.com/patrikbolt/crossplane_provider_cisco_aci/internal/clients"
     "github.com/patrikbolt/crossplane_provider_cisco_aci/internal/clients/tenant/epg"
@@ -25,14 +25,13 @@ func main() {
     }
 
     epgClient := epg.NewEPGClient(client)
-    exists, err := epgClient.ObserveEPG(*tenant, *appProfile, *epgName)
+
+    // Beobachten des EPG-Status
+    epgData, err := epgClient.ObserveEPG(*tenant, *appProfile, *epgName)
     if err != nil {
-        log.Fatalf("Failed to observe EPG: %v", err)
+        log.Fatalf("Error observing EPG: %v", err)
     }
-    if exists {
-        fmt.Println("EPG exists in ACI!")
-    } else {
-        fmt.Println("EPG does not exist in ACI.")
-    }
+
+    fmt.Printf("EPG %s observed successfully with data: %v\n", *epgName, epgData)
 }
 
