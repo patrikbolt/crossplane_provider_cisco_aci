@@ -1,26 +1,26 @@
-# Verwende Go 1.23 als Basisversion
-FROM golang:1.23 AS builder
+# Build Stage
+FROM golang:1.23 as builder
 
-# Setze das Arbeitsverzeichnis
 WORKDIR /workspace
 
-# Kopiere die Go-Module und lade die Abhängigkeiten
+# Kopiere die Go-Moduldateien und lade die Abhängigkeiten
 COPY go.mod go.sum ./
 RUN go mod download
 
-# Kopiere den restlichen Code
-COPY . .
+# Kopiere den Rest des Codes
+COPY . ./
 
-# Baue das Provider-Binary mit dem korrekten Pfad
-RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o provider ./cmd/provider/main.go
+# Baue das Provider-Binary
+RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -a -o provider cmd/provider/main.go
 
-# Verwende ein leichtes Basis-Image für die finale Version
+# Laufzeit-Image
 FROM alpine:3.16
+
 WORKDIR /
 
-# Kopiere das Binary aus dem Build-Container
+# Kopiere das gebaute Binary aus der Build-Stage
 COPY --from=builder /workspace/provider .
 
-# Setze den Startpunkt des Containers
+# Setze das EntryPoint
 ENTRYPOINT ["/provider"]
 

@@ -5,7 +5,6 @@ go 1.23
 require (
 	github.com/crossplane/crossplane-runtime v1.16.0
 	github.com/pkg/errors v0.9.1
-	go.uber.org/zap v1.26.0
 	k8s.io/apimachinery v0.29.2
 	sigs.k8s.io/controller-runtime v0.17.2
 )
@@ -43,7 +42,6 @@ require (
 	github.com/prometheus/procfs v0.12.0 // indirect
 	github.com/spf13/afero v1.11.0 // indirect
 	github.com/spf13/pflag v1.0.5 // indirect
-	go.uber.org/multierr v1.11.0 // indirect
 	golang.org/x/exp v0.0.0-20240112132812-db7319d0e0e3 // indirect
 	golang.org/x/net v0.23.0 // indirect
 	golang.org/x/oauth2 v0.15.0 // indirect

@@ -6,11 +6,10 @@ import (
     "fmt"
     "os"
 
-    "github.com/crossplane/crossplane-runtime/pkg/logging"
     "github.com/patrikbolt/crossplane_provider_cisco_aci/internal/clients"
     "github.com/patrikbolt/crossplane_provider_cisco_aci/internal/clients/tenant/epg"
-    "go.uber.org/zap/zapcore"
     ctrl "sigs.k8s.io/controller-runtime"
+    "sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 func main() {
@@ -33,8 +32,8 @@ func main() {
     }
 
     // Logger initialisieren
-    logger := logging.NewLogrLogger(ctrl.Log.WithName("provider-aci"))
-    ctrl.SetLogger(logger.WithValues("provider", "aci"))
+    logger := log.Log.WithName("provider-aci")
+    ctrl.SetLogger(logger)
 
     // Erstelle einen neuen ACI API Client
     client := clients.NewClient(baseURL, username, password)
@@ -69,8 +68,8 @@ func main() {
         os.Exit(1)
     }
 
-    // Starte den Manager (dieser Blockiert den Hauptthread)
-    if err := mgr.Start(context.Background()); err != nil {
+    // Starte den Manager (dieser blockiert den Hauptthread)
+    if err := mgr.Start(ctrl.SetupSignalHandler()); err != nil {
         logger.Error(err, "Manager beendet")
         os.Exit(1)
     }
