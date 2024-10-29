@@ -2,137 +2,103 @@ package epg
 
 import (
     "context"
-    "fmt"
 
-    "github.com/patrikbolt/crossplane_provider_cisco_aci/apis/tenant/epg/v1alpha1" // Importiere die EPG-API
-    aciv1alpha1 "github.com/patrikbolt/crossplane_provider_cisco_aci/apis/v1alpha1" // Importiere die ProviderConfig API
-    "github.com/patrikbolt/crossplane_provider_cisco_aci/internal/clients"         // Importiere den ACI-Client
-    "github.com/crossplane/crossplane-runtime/pkg/controller"
-    "github.com/crossplane/crossplane-runtime/pkg/logging"
-    "github.com/crossplane/crossplane-runtime/pkg/event"
-    "github.com/crossplane/crossplane-runtime/pkg/reconciler/managed"
-    "github.com/crossplane/crossplane-runtime/pkg/resource"
     ctrl "sigs.k8s.io/controller-runtime"
+    "sigs.k8s.io/controller-runtime/pkg/controller"
     "sigs.k8s.io/controller-runtime/pkg/client"
-    corev1 "k8s.io/api/core/v1"
+    "github.com/crossplane/crossplane-runtime/pkg/resource"
+    "github.com/crossplane/crossplane-runtime/pkg/logging"
+    "github.com/pkg/errors"
+
+    "github.com/patrikbolt/crossplane_provider_cisco_aci/apis/tenant/epg/v1alpha1"
+    "github.com/patrikbolt/crossplane_provider_cisco_aci/internal/clients"
 )
 
+func Setup(mgr ctrl.Manager, o controller.Options) error {
+    name := "epg-controller"
+
+    return ctrl.NewControllerManagedBy(mgr).
+        Named(name).
+        For(&v1alpha1.EPG{}).
+        Complete(resource.NewManagedReconciler(mgr,
+            resource.ManagedKind(v1alpha1.EPGGroupVersionKind),
+            resource.WithExternalConnecter(&connector{kube: mgr.GetClient(), newClientFn: clients.NewClient}),
+            o))
+}
+
 type connector struct {
-    kube client.Client
+    kube        client.Client
+    newClientFn func(config *clients.ACIConfig) (*clients.ACIClient, error)
+}
+
+func (c *connector) Connect(ctx context.Context, mg resource.Managed) (resource.ExternalClient, error) {
+    cr, ok := mg.(*v1alpha1.EPG)
+    if !ok {
+        return nil, errors.New("managed resource is not an EPG custom resource")
+    }
+
+    pc := &v1alpha1.ProviderConfig{}
+    if err := c.kube.Get(ctx, client.ObjectKey{Name: cr.Spec.ProviderConfigRef.Name}, pc); err != nil {
+        return nil, errors.Wrap(err, "cannot get ProviderConfig")
+    }
+
+    cfg := clients.NewConfig(pc)
+    client, err := c.newClientFn(cfg)
+    if err != nil {
+        return nil, errors.Wrap(err, "cannot create ACI client")
+    }
+    return &external{client: client}, nil
 }
 
 type external struct {
     client *clients.ACIClient
 }
 
-// Setup adds a controller that reconciles EPG managed resources
-func Setup(mgr ctrl.Manager, o controller.Options) error {
-    name := managed.ControllerName(v1alpha1.EPGGroupKind)
-
-    return ctrl.NewControllerManagedBy(mgr).
-        Named(name).
-        For(&v1alpha1.EPG{}).
-        Complete(managed.NewReconciler(mgr,
-            resource.ManagedKind(v1alpha1.GroupVersion.WithKind("EPG")),
-            managed.WithExternalConnecter(&connector{kube: mgr.GetClient()}),
-            managed.WithLogger(o.Logger.WithValues("controller", name)),
-            managed.WithRecorder(event.NewAPIRecorder(mgr.GetEventRecorderFor(name))),
-        ))
-}
-
-func (c *connector) Connect(ctx context.Context, mg resource.Managed) (managed.ExternalClient, error) {
-    // Konvertiere die Managed Resource zu einem EPG
-    epg, ok := mg.(*v1alpha1.EPG)
+func (c *external) Observe(ctx context.Context, mg resource.Managed) (resource.ExternalObservation, error) {
+    cr, ok := mg.(*v1alpha1.EPG)
     if !ok {
-        return nil, fmt.Errorf("managed resource is not an EPG")
+        return resource.ExternalObservation{}, errors.New("managed resource is not an EPG")
     }
 
-    // Lade die ProviderConfig
-    pc := &aciv1alpha1.ProviderConfig{}
-    if err := c.kube.Get(ctx, client.ObjectKey{Name: epg.GetProviderConfigReference().Name}, pc); err != nil {
-        return nil, err
-    }
-
-    // Lade das Kubernetes-Secret für die Zugangsdaten
-    secret := &corev1.Secret{}
-    if err := c.kube.Get(ctx, client.ObjectKey{
-        Namespace: pc.Spec.CredentialsSecretRef.Namespace,
-        Name:      pc.Spec.CredentialsSecretRef.Name,
-    }, secret); err != nil {
-        return nil, fmt.Errorf("cannot get secret %s: %w", pc.Spec.CredentialsSecretRef.Name, err)
-    }
-
-    // Extrahiere die Zugangsdaten
-    username := string(secret.Data["username"])
-    password := string(secret.Data["password"])
-
-    // Initialisiere den ACIClient mit URL und Zugangsdaten
-    aciClient, err := clients.NewACIClient(pc.Spec.URL, username, password)
+    observation, err := c.client.ObserveEPG(ctx, cr.Spec.ForProvider)
     if err != nil {
-        return nil, err
+        return resource.ExternalObservation{}, err
     }
-    return &external{client: aciClient}, nil
+    return observation, nil
 }
 
-func (c *external) Observe(ctx context.Context, mg resource.Managed) (managed.ExternalObservation, error) {
-    epg, ok := mg.(*v1alpha1.EPG)
+func (c *external) Create(ctx context.Context, mg resource.Managed) (resource.ExternalCreation, error) {
+    cr, ok := mg.(*v1alpha1.EPG)
     if !ok {
-        return managed.ExternalObservation{}, fmt.Errorf("managed resource is not an EPG")
+        return resource.ExternalCreation{}, errors.New("managed resource is not an EPG")
     }
 
-    exists, err := c.client.ObserveEPG(clients.EPG{
-        Name:       epg.Spec.ForProvider.Name,
-        Tenant:     epg.Spec.ForProvider.Tenant,
-        AppProfile: epg.Spec.ForProvider.AppProfile,
-    })
+    creation, err := c.client.CreateEPG(ctx, cr.Spec.ForProvider)
     if err != nil {
-        return managed.ExternalObservation{}, err
+        return resource.ExternalCreation{}, err
     }
-
-    return managed.ExternalObservation{
-        ResourceExists:    exists,
-        ResourceUpToDate:  true, // Hier könntest du eine tiefere Prüfung für Aktualität einbauen
-    }, nil
+    return creation, nil
 }
 
-func (c *external) Create(ctx context.Context, mg resource.Managed) (managed.ExternalCreation, error) {
-    epg, ok := mg.(*v1alpha1.EPG)
+func (c *external) Update(ctx context.Context, mg resource.Managed) (resource.ExternalUpdate, error) {
+    cr, ok := mg.(*v1alpha1.EPG)
     if !ok {
-        return managed.ExternalCreation{}, fmt.Errorf("managed resource is not an EPG")
+        return resource.ExternalUpdate{}, errors.New("managed resource is not an EPG")
     }
 
-    err := c.client.CreateEPG(clients.EPG{
-        Name:       epg.Spec.ForProvider.Name,
-        Tenant:     epg.Spec.ForProvider.Tenant,
-        AppProfile: epg.Spec.ForProvider.AppProfile,
-    })
-    return managed.ExternalCreation{}, err
-}
-
-func (c *external) Update(ctx context.Context, mg resource.Managed) (managed.ExternalUpdate, error) {
-    epg, ok := mg.(*v1alpha1.EPG)
-    if !ok {
-        return managed.ExternalUpdate{}, fmt.Errorf("managed resource is not an EPG")
+    update, err := c.client.UpdateEPG(ctx, cr.Spec.ForProvider)
+    if err != nil {
+        return resource.ExternalUpdate{}, err
     }
-
-    err := c.client.UpdateEPG(clients.EPG{
-        Name:       epg.Spec.ForProvider.Name,
-        Tenant:     epg.Spec.ForProvider.Tenant,
-        AppProfile: epg.Spec.ForProvider.AppProfile,
-    })
-    return managed.ExternalUpdate{}, err
+    return update, nil
 }
 
 func (c *external) Delete(ctx context.Context, mg resource.Managed) error {
-    epg, ok := mg.(*v1alpha1.EPG)
+    cr, ok := mg.(*v1alpha1.EPG)
     if !ok {
-        return fmt.Errorf("managed resource is not an EPG")
+        return errors.New("managed resource is not an EPG")
     }
 
-    return c.client.DeleteEPG(clients.EPG{
-        Name:       epg.Spec.ForProvider.Name,
-        Tenant:     epg.Spec.ForProvider.Tenant,
-        AppProfile: epg.Spec.ForProvider.AppProfile,
-    })
+    return c.client.DeleteEPG(ctx, cr.Spec.ForProvider)
 }
 
