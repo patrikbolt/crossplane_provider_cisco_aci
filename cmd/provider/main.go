@@ -1,81 +1,70 @@
 package main
 
 import (
-    "context"
     "flag"
     "fmt"
     "os"
+    "path/filepath"
+    "time"
 
-    "github.com/patrikbolt/crossplane_provider_cisco_aci/internal/clients"
-    "github.com/patrikbolt/crossplane_provider_cisco_aci/internal/clients/tenant/epg"
     ctrl "sigs.k8s.io/controller-runtime"
-    "sigs.k8s.io/controller-runtime/pkg/log"
+    "sigs.k8s.io/controller-runtime/pkg/log/zap"
+
+    "github.com/crossplane/crossplane-runtime/pkg/controller"
+    "github.com/crossplane/crossplane-runtime/pkg/logging"
+    "github.com/patrikbolt/crossplane_provider_cisco_aci/apis/tenant/epg/v1alpha1"
+    epgcontroller "github.com/patrikbolt/crossplane_provider_cisco_aci/internal/controller/tenant/epg"
 )
 
 func main() {
     var (
-        baseURL           string
-        username          string
-        password          string
-        insecureSkipVerify bool
+        debug          = flag.Bool("debug", false, "Enable debug logging.")
+        syncInterval   = flag.Duration("sync-interval", time.Hour, "Sync interval for all resources.")
+        maxReconcile   = flag.Int("max-reconcile", 10, "Maximum reconcile rate per second.")
+        pollInterval   = flag.Duration("poll-interval", time.Minute, "Poll interval for drift checks.")
     )
-
-    // Flags für die ACI API Konfiguration
-    flag.StringVar(&baseURL, "base-url", "", "Basis-URL der ACI API")
-    flag.StringVar(&username, "username", "", "Benutzername für die ACI API")
-    flag.StringVar(&password, "password", "", "Passwort für die ACI API")
-    flag.BoolVar(&insecureSkipVerify, "insecure-skip-verify", false, "Deaktiviert die SSL-Zertifikatsprüfung")
     flag.Parse()
 
-    // Überprüfe, ob alle notwendigen Parameter vorhanden sind
-    if baseURL == "" || username == "" || password == "" {
-        fmt.Println("Bitte geben Sie --base-url, --username und --password an")
-        os.Exit(1)
-    }
+    zl := zap.New(zap.UseDevMode(*debug))
+    log := logging.NewLogrLogger(zl.WithName("provider-aci"))
+    ctrl.SetLogger(zl)
 
-    // Logger initialisieren
-    logger := log.Log.WithName("provider-aci")
-    ctrl.SetLogger(logger)
-
-    // Erstelle einen neuen ACI API Client
-    client := clients.NewClient(baseURL, username, password, insecureSkipVerify)
-    err := client.Authenticate()
+    cfg, err := ctrl.GetConfig()
     if err != nil {
-        logger.Error(err, "Authentifizierung bei der ACI API fehlgeschlagen")
+        fmt.Fprintf(os.Stderr, "Error loading config: %v\n", err)
         os.Exit(1)
     }
 
-    // Erstelle einen neuen EPGClient
-    epgClient := epg.NewEPGClient(client)
-
-    // Beispiel: Erstelle ein neues EPG (dieser Teil sollte eigentlich in deinem Controller passieren)
-    tenantName := "example-tenant"
-    appProfileName := "example-app-profile"
-    epgName := "example-epg"
-
-    err = epgClient.CreateEPG(tenantName, appProfileName, epgName)
-    if err != nil {
-        logger.Error(err, "Fehler beim Erstellen des EPG")
-        os.Exit(1)
-    }
-
-    logger.Info("EPG erfolgreich erstellt")
-
-    // Erstelle einen Kontext
-    ctx := context.Background()
-
-    // Hier würdest du den Controller-Manager initialisieren und deine Controller hinzufügen
-    mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
-        Scheme: nil, // Füge hier dein Schema hinzu
+    mgr, err := ctrl.NewManager(cfg, ctrl.Options{
+        SyncPeriod: syncInterval,
     })
     if err != nil {
-        logger.Error(err, "Fehler beim Erstellen des Managers")
+        log.Error(err, "Error creating controller manager")
         os.Exit(1)
     }
 
-    // Starte den Manager (dieser blockiert den Hauptthread)
-    if err := mgr.Start(ctx); err != nil {
-        logger.Error(err, "Manager beendet")
+    // Register EPG API schema
+    if err := v1alpha1.AddToScheme(mgr.GetScheme()); err != nil {
+        log.Error(err, "Error adding API schema")
+        os.Exit(1)
+    }
+
+    o := controller.Options{
+        Logger:                  log,
+        MaxConcurrentReconciles: *maxReconcile,
+        PollInterval:            *pollInterval,
+    }
+
+    // Setup EPG controller
+    if err := epgcontroller.Setup(mgr, o); err != nil {
+        log.Error(err, "Error setting up EPG controller")
+        os.Exit(1)
+    }
+
+    // Start the manager
+    log.Info("Starting controller manager")
+    if err := mgr.Start(ctrl.SetupSignalHandler()); err != nil {
+        log.Error(err, "Error running manager")
         os.Exit(1)
     }
 }

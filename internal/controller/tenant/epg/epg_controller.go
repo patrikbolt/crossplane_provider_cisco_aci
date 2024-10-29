@@ -2,17 +2,21 @@ package epg
 
 import (
     "context"
+    "fmt"
 
     ctrl "sigs.k8s.io/controller-runtime"
     "sigs.k8s.io/controller-runtime/pkg/controller"
     "sigs.k8s.io/controller-runtime/pkg/client"
+    "github.com/crossplane/crossplane-runtime/pkg/logging"
     "github.com/crossplane/crossplane-runtime/pkg/resource"
     "github.com/pkg/errors"
 
     "github.com/patrikbolt/crossplane_provider_cisco_aci/apis/tenant/epg/v1alpha1"
+    "github.com/patrikbolt/crossplane_provider_cisco_aci/internal/clients"
     "github.com/patrikbolt/crossplane_provider_cisco_aci/internal/clients/tenant/epg"
 )
 
+// Setup sets up the EPG controller
 func Setup(mgr ctrl.Manager, o controller.Options) error {
     name := "epg-controller"
 
@@ -21,13 +25,13 @@ func Setup(mgr ctrl.Manager, o controller.Options) error {
         For(&v1alpha1.EPG{}).
         Complete(resource.NewManagedReconciler(mgr,
             resource.ManagedKind(v1alpha1.EPGGroupVersionKind),
-            resource.WithExternalConnecter(&connector{kube: mgr.GetClient(), newClientFn: epg.NewEPGClient}),
+            resource.WithExternalConnecter(&connector{kube: mgr.GetClient(), newClientFn: clients.NewClient}),
             o))
 }
 
 type connector struct {
     kube        client.Client
-    newClientFn func(config *epg.EPGConfig) (*epg.EPGClient, error)
+    newClientFn func(baseURL, username, password string, insecureSkipVerify bool) *clients.Client
 }
 
 func (c *connector) Connect(ctx context.Context, mg resource.Managed) (resource.ExternalClient, error) {
@@ -41,12 +45,8 @@ func (c *connector) Connect(ctx context.Context, mg resource.Managed) (resource.
         return nil, errors.Wrap(err, "cannot get ProviderConfig")
     }
 
-    cfg := epg.NewConfig(pc)
-    client, err := c.newClientFn(cfg)
-    if err != nil {
-        return nil, errors.Wrap(err, "cannot create EPG client")
-    }
-    return &external{client: client}, nil
+    cfg := clients.NewClient(pc.Spec.BaseURL, pc.Spec.Username, pc.Spec.Password, pc.Spec.InsecureSkipVerify)
+    return &external{client: epg.NewEPGClient(cfg)}, nil
 }
 
 type external struct {
@@ -59,11 +59,18 @@ func (c *external) Observe(ctx context.Context, mg resource.Managed) (resource.E
         return resource.ExternalObservation{}, errors.New("managed resource is not an EPG")
     }
 
-    exists, err := c.client.ObserveEPG(ctx, cr.Spec.ForProvider)
+    exists, err := c.client.ObserveEPG(epg.EPG{
+        Name:       cr.Spec.ForProvider.Name,
+        Tenant:     cr.Spec.ForProvider.Tenant,
+        AppProfile: cr.Spec.ForProvider.AppProfile,
+    })
     if err != nil {
         return resource.ExternalObservation{}, err
     }
-    return resource.ExternalObservation{ResourceExists: exists}, nil
+
+    return resource.ExternalObservation{
+        ResourceExists: exists,
+    }, nil
 }
 
 func (c *external) Create(ctx context.Context, mg resource.Managed) (resource.ExternalCreation, error) {
@@ -72,8 +79,18 @@ func (c *external) Create(ctx context.Context, mg resource.Managed) (resource.Ex
         return resource.ExternalCreation{}, errors.New("managed resource is not an EPG")
     }
 
-    err := c.client.CreateEPG(ctx, cr.Spec.ForProvider)
-    return resource.ExternalCreation{}, err
+    err := c.client.CreateEPG(epg.EPG{
+        Name:       cr.Spec.ForProvider.Name,
+        Tenant:     cr.Spec.ForProvider.Tenant,
+        AppProfile: cr.Spec.ForProvider.AppProfile,
+        Desc:       cr.Spec.ForProvider.Desc,
+        Bd:         cr.Spec.ForProvider.Bd,
+    })
+    if err != nil {
+        return resource.ExternalCreation{}, err
+    }
+
+    return resource.ExternalCreation{}, nil
 }
 
 func (c *external) Update(ctx context.Context, mg resource.Managed) (resource.ExternalUpdate, error) {
@@ -82,8 +99,18 @@ func (c *external) Update(ctx context.Context, mg resource.Managed) (resource.Ex
         return resource.ExternalUpdate{}, errors.New("managed resource is not an EPG")
     }
 
-    err := c.client.UpdateEPG(ctx, cr.Spec.ForProvider)
-    return resource.ExternalUpdate{}, err
+    err := c.client.UpdateEPG(epg.EPG{
+        Name:       cr.Spec.ForProvider.Name,
+        Tenant:     cr.Spec.ForProvider.Tenant,
+        AppProfile: cr.Spec.ForProvider.AppProfile,
+        Desc:       cr.Spec.ForProvider.Desc,
+        Bd:         cr.Spec.ForProvider.Bd,
+    })
+    if err != nil {
+        return resource.ExternalUpdate{}, err
+    }
+
+    return resource.ExternalUpdate{}, nil
 }
 
 func (c *external) Delete(ctx context.Context, mg resource.Managed) error {
@@ -92,6 +119,10 @@ func (c *external) Delete(ctx context.Context, mg resource.Managed) error {
         return errors.New("managed resource is not an EPG")
     }
 
-    return c.client.DeleteEPG(ctx, cr.Spec.ForProvider)
+    return c.client.DeleteEPG(epg.EPG{
+        Name:       cr.Spec.ForProvider.Name,
+        Tenant:     cr.Spec.ForProvider.Tenant,
+        AppProfile: cr.Spec.ForProvider.AppProfile,
+    })
 }
 

@@ -3,7 +3,6 @@ package main
 import (
     "flag"
     "log"
-    "fmt"
 
     "github.com/patrikbolt/crossplane_provider_cisco_aci/internal/clients"
     "github.com/patrikbolt/crossplane_provider_cisco_aci/internal/clients/tenant/epg"
@@ -16,6 +15,7 @@ func main() {
     tenant := flag.String("tenant", "", "Tenant name")
     appProfile := flag.String("app-profile", "", "Application Profile name")
     epgName := flag.String("epg-name", "", "EPG name")
+    desc := flag.String("desc", "", "New description")
     skipSSLVerify := flag.Bool("skip-ssl-verify", false, "Skip SSL verification (insecure)")
     flag.Parse()
 
@@ -25,10 +25,10 @@ func main() {
     }
 
     epgClient := epg.NewEPGClient(client)
-    err := epgClient.DeleteEPG(*tenant, *appProfile, *epgName)
+    err := epgClient.UpdateEPG(*tenant, *appProfile, *epgName, *desc)
     if err != nil {
-        log.Fatalf("Failed to delete EPG: %v", err)
+        log.Fatalf("Failed to update EPG: %v", err)
     }
-    fmt.Println("EPG deleted successfully!")
+    fmt.Println("EPG updated successfully!")
 }
 

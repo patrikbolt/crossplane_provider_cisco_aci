@@ -1,53 +1,139 @@
 package epg
 
 import (
+    "encoding/json"
     "fmt"
+    "log"
 
     "github.com/patrikbolt/crossplane_provider_cisco_aci/internal/clients"
 )
 
-// EPGClient bietet Funktionen zur Verwaltung von EPGs
+// EPGClient manages operations for End Point Groups (EPGs) in Cisco ACI
 type EPGClient struct {
-    Client *clients.Client
+    client *clients.Client
 }
 
-// NewEPGClient erstellt einen neuen EPGClient
+// NewEPGClient initializes a new EPG client
 func NewEPGClient(client *clients.Client) *EPGClient {
     return &EPGClient{
-        Client: client,
+        client: client,
     }
 }
 
-// CreateEPG erstellt ein neues EPG
-func (c *EPGClient) CreateEPG(tenantName, appProfileName, epgName string) error {
-    endpoint := fmt.Sprintf("/api/mo/uni/tn-%s/ap-%s/epg-%s.json", tenantName, appProfileName, epgName)
+// CreateEPG creates a new End Point Group (EPG) in Cisco ACI
+func (c *EPGClient) CreateEPG(tenant, appProfile, epgName, bd, desc string) error {
+    url := fmt.Sprintf("/api/node/mo/uni/tn-%s/ap-%s/epg-%s.json", tenant, appProfile, epgName)
+
+    // Define the payload structure for the API request
     data := map[string]interface{}{
         "fvAEPg": map[string]interface{}{
             "attributes": map[string]string{
-                "name": epgName,
+                "dn":     fmt.Sprintf("uni/tn-%s/ap-%s/epg-%s", tenant, appProfile, epgName),
+                "prio":   "level3",
+                "name":   epgName,
+                "descr":  desc,
+                "rn":     fmt.Sprintf("epg-%s", epgName),
+                "status": "created",
+            },
+            "children": []interface{}{
+                map[string]interface{}{
+                    "fvRsBd": map[string]interface{}{
+                        "attributes": map[string]string{
+                            "tnFvBDName": bd,
+                            "status":     "created,modified",
+                        },
+                        "children": []interface{}{},
+                    },
+                },
             },
         },
     }
-    _, err := c.Client.DoRequest("POST", endpoint, data)
-    return err
+
+    // Log request details for debugging
+    log.Printf("Sending POST request to %s with data: %v\n", url, data)
+
+    // Execute the request using the DoRequest function from the client
+    respBody, err := c.client.DoRequest("POST", url, data)
+    if err != nil {
+        return err
+    }
+
+    // Log the response for debugging
+    log.Printf("Response: %s\n", string(respBody))
+
+    // Parse the response to check for any errors
+    var result map[string]interface{}
+    if err := json.Unmarshal(respBody, &result); err != nil {
+        return err
+    }
+
+    // Check for API errors in the response
+    if imdata, ok := result["imdata"].([]interface{}); ok && len(imdata) > 0 {
+        if errorInfo, found := imdata[0].(map[string]interface{})["error"]; found {
+            attrs := errorInfo.(map[string]interface{})["attributes"].(map[string]interface{})
+            return fmt.Errorf("error creating EPG: code=%s, text=%s", attrs["code"], attrs["text"])
+        }
+    }
+
+    log.Println("EPG created successfully!")
+    return nil
 }
 
-// GetEPG ruft Informationen über ein EPG ab
-func (c *EPGClient) GetEPG(tenantName, appProfileName, epgName string) ([]byte, error) {
-    endpoint := fmt.Sprintf("/api/mo/uni/tn-%s/ap-%s/epg-%s.json", tenantName, appProfileName, epgName)
-    return c.Client.DoRequest("GET", endpoint, nil)
+// UpdateEPG updates an existing End Point Group (EPG) in Cisco ACI
+func (c *EPGClient) UpdateEPG(tenant, appProfile, epgName, bd, desc string) error {
+    url := fmt.Sprintf("/api/node/mo/uni/tn-%s/ap-%s/epg-%s.json", tenant, appProfile, epgName)
+
+    // Define the payload structure for the update request
+    data := map[string]interface{}{
+        "fvAEPg": map[string]interface{}{
+            "attributes": map[string]string{
+                "descr":  desc,
+                "name":   epgName,
+                "status": "modified",
+            },
+            "children": []interface{}{
+                map[string]interface{}{
+                    "fvRsBd": map[string]interface{}{
+                        "attributes": map[string]string{
+                            "tnFvBDName": bd,
+                            "status":     "created,modified",
+                        },
+                        "children": []interface{}{},
+                    },
+                },
+            },
+        },
+    }
+
+    log.Printf("Sending POST request to %s with data: %v\n", url, data)
+
+    respBody, err := c.client.DoRequest("POST", url, data)
+    if err != nil {
+        return err
+    }
+
+    log.Printf("Response: %s\n", string(respBody))
+
+    var result map[string]interface{}
+    if err := json.Unmarshal(respBody, &result); err != nil {
+        return err
+    }
+
+    if imdata, ok := result["imdata"].([]interface{}); ok && len(imdata) > 0 {
+        if errorInfo, found := imdata[0].(map[string]interface{})["error"]; found {
+            attrs := errorInfo.(map[string]interface{})["attributes"].(map[string]interface{})
+            return fmt.Errorf("error updating EPG: code=%s, text=%s", attrs["code"], attrs["text"])
+        }
+    }
+
+    log.Println("EPG updated successfully!")
+    return nil
 }
 
-// UpdateEPG aktualisiert ein bestehendes EPG
-func (c *EPGClient) UpdateEPG(tenantName, appProfileName, epgName string, data map[string]interface{}) error {
-    endpoint := fmt.Sprintf("/api/mo/uni/tn-%s/ap-%s/epg-%s.json", tenantName, appProfileName, epgName)
-    _, err := c.Client.DoRequest("POST", endpoint, data)
-    return err
-}
+// DeleteEPG deletes an existing End Point Group (EPG) in Cisco ACI
+func (c *EPGClient) DeleteEPG(tenant, appProfile, epgName string) error {
+    url := fmt.Sprintf("/api/node/mo/uni/tn-%s/ap-%s/epg-%s.json", tenant, appProfile, epgName)
 
-// DeleteEPG löscht ein EPG
-func (c *EPGClient) DeleteEPG(tenantName, appProfileName, epgName string) error {
-    endpoint := fmt.Sprintf("/api/mo/uni/tn-%s/ap-%s/epg-%s.json", tenantName, appProfileName, epgName)
     data := map[string]interface{}{
         "fvAEPg": map[string]interface{}{
             "attributes": map[string]string{
@@ -55,7 +141,29 @@ func (c *EPGClient) DeleteEPG(tenantName, appProfileName, epgName string) error 
             },
         },
     }
-    _, err := c.Client.DoRequest("POST", endpoint, data)
-    return err
+
+    log.Printf("Sending POST request to %s with data: %v\n", url, data)
+
+    respBody, err := c.client.DoRequest("POST", url, data)
+    if err != nil {
+        return err
+    }
+
+    log.Printf("Response: %s\n", string(respBody))
+
+    var result map[string]interface{}
+    if err := json.Unmarshal(respBody, &result); err != nil {
+        return err
+    }
+
+    if imdata, ok := result["imdata"].([]interface{}); ok && len(imdata) > 0 {
+        if errorInfo, found := imdata[0].(map[string]interface{})["error"]; found {
+            attrs := errorInfo.(map[string]interface{})["attributes"].(map[string]interface{})
+            return fmt.Errorf("error deleting EPG: code=%s, text=%s", attrs["code"], attrs["text"])
+        }
+    }
+
+    log.Println("EPG deleted successfully!")
+    return nil
 }
 

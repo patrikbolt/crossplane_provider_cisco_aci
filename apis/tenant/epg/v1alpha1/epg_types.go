@@ -16,6 +16,8 @@ type EPGParameters struct {
     Name       string `json:"name"`
     Tenant     string `json:"tenant"`
     AppProfile string `json:"appProfile"`
+    Desc       string `json:"desc"`
+    Bd         string `json:"bd"`
 }
 
 // EPGStatus defines the observed state of an EPG.
