@@ -1,5 +1,5 @@
-# Verwende Go 1.21 als Basisversion
-FROM golang:1.21 AS builder
+# Verwende Go 1.23 als Basisversion
+FROM golang:1.23 AS builder
 
 # Setze das Arbeitsverzeichnis
 WORKDIR /workspace
