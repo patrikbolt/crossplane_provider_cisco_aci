@@ -59,6 +59,9 @@ func main() {
 
     logger.Info("EPG erfolgreich erstellt")
 
+    // Erstelle einen Kontext
+    ctx := context.Background()
+
     // Hier würdest du den Controller-Manager initialisieren und deine Controller hinzufügen
     mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
         Scheme: nil, // Füge hier dein Schema hinzu
@@ -69,7 +72,7 @@ func main() {
     }
 
     // Starte den Manager (dieser blockiert den Hauptthread)
-    if err := mgr.Start(ctrl.SetupSignalHandler()); err != nil {
+    if err := mgr.Start(ctx); err != nil {
         logger.Error(err, "Manager beendet")
         os.Exit(1)
     }

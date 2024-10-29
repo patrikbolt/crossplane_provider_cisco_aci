@@ -1,6 +1,6 @@
 module github.com/patrikbolt/crossplane_provider_cisco_aci
 
-go 1.23
+go 1.21
 
 require (
 	github.com/crossplane/crossplane-runtime v1.16.0
