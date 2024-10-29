@@ -2,6 +2,7 @@ package clients
 
 import (
     "bytes"
+    "crypto/tls"
     "encoding/json"
     "fmt"
     "io/ioutil"
@@ -10,18 +11,20 @@ import (
 
 // Client ist der API-Client für die Kommunikation mit Cisco ACI
 type Client struct {
-    BaseURL  string
-    Username string
-    Password string
-    Token    string
+    BaseURL           string
+    Username          string
+    Password          string
+    Token             string
+    InsecureSkipVerify bool
 }
 
 // NewClient erstellt einen neuen Client für die ACI API
-func NewClient(baseURL, username, password string) *Client {
+func NewClient(baseURL, username, password string, insecureSkipVerify bool) *Client {
     return &Client{
-        BaseURL:  baseURL,
-        Username: username,
-        Password: password,
+        BaseURL:           baseURL,
+        Username:          username,
+        Password:          password,
+        InsecureSkipVerify: insecureSkipVerify,
     }
 }
 
@@ -39,7 +42,11 @@ func (c *Client) Authenticate() error {
     jsonData, _ := json.Marshal(authData)
     req, _ := http.NewRequest("POST", url, bytes.NewBuffer(jsonData))
     req.Header.Set("Content-Type", "application/json")
-    client := &http.Client{}
+    client := &http.Client{
+        Transport: &http.Transport{
+            TLSClientConfig: &tls.Config{InsecureSkipVerify: c.InsecureSkipVerify},
+        },
+    }
     resp, err := client.Do(req)
     if err != nil {
         return err
@@ -86,7 +93,11 @@ func (c *Client) DoRequest(method, endpoint string, data interface{}) ([]byte, e
     if c.Token != "" {
         req.Header.Set("Cookie", fmt.Sprintf("APIC-cookie=%s", c.Token))
     }
-    client := &http.Client{}
+    client := &http.Client{
+        Transport: &http.Transport{
+            TLSClientConfig: &tls.Config{InsecureSkipVerify: c.InsecureSkipVerify},
+        },
+    }
     resp, err := client.Do(req)
     if err != nil {
         return nil, err

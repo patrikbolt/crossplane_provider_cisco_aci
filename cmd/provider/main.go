@@ -14,15 +14,17 @@ import (
 
 func main() {
     var (
-        baseURL  string
-        username string
-        password string
+        baseURL           string
+        username          string
+        password          string
+        insecureSkipVerify bool
     )
 
     // Flags für die ACI API Konfiguration
     flag.StringVar(&baseURL, "base-url", "", "Basis-URL der ACI API")
     flag.StringVar(&username, "username", "", "Benutzername für die ACI API")
     flag.StringVar(&password, "password", "", "Passwort für die ACI API")
+    flag.BoolVar(&insecureSkipVerify, "insecure-skip-verify", false, "Deaktiviert die SSL-Zertifikatsprüfung")
     flag.Parse()
 
     // Überprüfe, ob alle notwendigen Parameter vorhanden sind
@@ -36,7 +38,7 @@ func main() {
     ctrl.SetLogger(logger)
 
     // Erstelle einen neuen ACI API Client
-    client := clients.NewClient(baseURL, username, password)
+    client := clients.NewClient(baseURL, username, password, insecureSkipVerify)
     err := client.Authenticate()
     if err != nil {
         logger.Error(err, "Authentifizierung bei der ACI API fehlgeschlagen")
