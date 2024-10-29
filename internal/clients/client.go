@@ -6,6 +6,7 @@ import (
     "encoding/json"
     "fmt"
     "io/ioutil"
+    "log"
     "net/http"
 )
 
@@ -47,12 +48,17 @@ func (c *Client) Authenticate() error {
             TLSClientConfig: &tls.Config{InsecureSkipVerify: c.InsecureSkipVerify},
         },
     }
+
+    log.Printf("Sending authentication request to %s", url)
     resp, err := client.Do(req)
     if err != nil {
-        return err
+        return fmt.Errorf("authentication request failed: %v", err)
     }
     defer resp.Body.Close()
+
     body, _ := ioutil.ReadAll(resp.Body)
+    log.Printf("Authentication response: %s", body)
+
     var result map[string]interface{}
     json.Unmarshal(body, &result)
     imdata, ok := result["imdata"].([]interface{})
@@ -71,6 +77,7 @@ func (c *Client) Authenticate() error {
     if !ok {
         return fmt.Errorf("authentication failed: missing token")
     }
+    log.Println("Authentication successful, token acquired")
     return nil
 }
 
@@ -82,28 +89,33 @@ func (c *Client) DoRequest(method, endpoint string, data interface{}) ([]byte, e
     if data != nil {
         jsonData, err = json.Marshal(data)
         if err != nil {
-            return nil, err
+            return nil, fmt.Errorf("error marshalling data: %v", err)
         }
     }
     req, err := http.NewRequest(method, url, bytes.NewBuffer(jsonData))
     if err != nil {
-        return nil, err
+        return nil, fmt.Errorf("error creating request: %v", err)
     }
     req.Header.Set("Content-Type", "application/json")
     if c.Token != "" {
         req.Header.Set("Cookie", fmt.Sprintf("APIC-cookie=%s", c.Token))
     }
+
     client := &http.Client{
         Transport: &http.Transport{
             TLSClientConfig: &tls.Config{InsecureSkipVerify: c.InsecureSkipVerify},
         },
     }
+
+    log.Printf("Sending %s request to %s with data: %s", method, url, jsonData)
     resp, err := client.Do(req)
     if err != nil {
-        return nil, err
+        return nil, fmt.Errorf("request failed: %v", err)
     }
     defer resp.Body.Close()
+
     body, _ := ioutil.ReadAll(resp.Body)
+    log.Printf("Response: %s", body)
     return body, nil
 }
 
