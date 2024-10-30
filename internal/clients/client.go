@@ -10,7 +10,7 @@ import (
 	"net/http"
 )
 
-// Client represents the API client for communicating with Cisco ACI
+// Client repräsentiert den API-Client für die Kommunikation mit Cisco ACI
 type Client struct {
 	BaseURL            string
 	Username           string
@@ -19,7 +19,7 @@ type Client struct {
 	InsecureSkipVerify bool
 }
 
-// NewClient creates a new Client for the ACI API
+// NewClient erstellt einen neuen Client für die ACI API
 func NewClient(baseURL, username, password string, insecureSkipVerify bool) *Client {
 	return &Client{
 		BaseURL:            baseURL,
@@ -29,7 +29,7 @@ func NewClient(baseURL, username, password string, insecureSkipVerify bool) *Cli
 	}
 }
 
-// Authenticate authenticates the client and retrieves a token
+// Authenticate authentifiziert den Client und ruft ein Token ab
 func (c *Client) Authenticate() error {
 	url := fmt.Sprintf("%s/api/aaaLogin.json", c.BaseURL)
 	authData := map[string]interface{}{
@@ -40,8 +40,14 @@ func (c *Client) Authenticate() error {
 			},
 		},
 	}
-	jsonData, _ := json.Marshal(authData)
-	req, _ := http.NewRequest("POST", url, bytes.NewBuffer(jsonData))
+	jsonData, err := json.Marshal(authData)
+	if err != nil {
+		return fmt.Errorf("Fehler beim Marshalen der Authentifizierungsdaten: %v", err)
+	}
+	req, err := http.NewRequest("POST", url, bytes.NewBuffer(jsonData))
+	if err != nil {
+		return fmt.Errorf("Fehler beim Erstellen der Authentifizierungsanfrage: %v", err)
+	}
 	req.Header.Set("Content-Type", "application/json")
 	client := &http.Client{
 		Transport: &http.Transport{
@@ -50,50 +56,61 @@ func (c *Client) Authenticate() error {
 	}
 	resp, err := client.Do(req)
 	if err != nil {
-		return err
+		return fmt.Errorf("Fehler bei der Authentifizierungsanfrage: %v", err)
 	}
 	defer resp.Body.Close()
-	body, _ := ioutil.ReadAll(resp.Body)
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return fmt.Errorf("Fehler beim Lesen der Authentifizierungsantwort: %v", err)
+	}
 	var result map[string]interface{}
-	json.Unmarshal(body, &result)
+	if err := json.Unmarshal(body, &result); err != nil {
+		return fmt.Errorf("Fehler beim Unmarshalen der Authentifizierungsantwort: %v", err)
+	}
 	imdata, ok := result["imdata"].([]interface{})
 	if !ok || len(imdata) == 0 {
-		return fmt.Errorf("authentication failed: invalid response")
+		return fmt.Errorf("Authentifizierung fehlgeschlagen: ungültige Antwort")
 	}
 	aaaLogin, ok := imdata[0].(map[string]interface{})["aaaLogin"].(map[string]interface{})
 	if !ok {
-		return fmt.Errorf("authentication failed: missing aaaLogin data")
+		return fmt.Errorf("Authentifizierung fehlgeschlagen: fehlende aaaLogin-Daten")
 	}
 	attributes, ok := aaaLogin["attributes"].(map[string]interface{})
 	if !ok {
-		return fmt.Errorf("authentication failed: missing attributes")
+		return fmt.Errorf("Authentifizierung fehlgeschlagen: fehlende Attribute")
 	}
 	c.Token, ok = attributes["token"].(string)
 	if !ok {
-		return fmt.Errorf("authentication failed: missing token")
+		return fmt.Errorf("Authentifizierung fehlgeschlagen: fehlendes Token")
 	}
-	log.Println("Authenticated successfully.")
+	log.Println("Erfolgreich authentifiziert.")
 	return nil
 }
 
-// DoRequest performs an HTTP request to the ACI API
+// DoRequest führt eine HTTP-Anfrage an die ACI API durch
 func (c *Client) DoRequest(method, endpoint string, data interface{}) ([]byte, error) {
 	if c.Token == "" {
-		log.Println("No token found, authenticating...")
+		log.Println("Kein Token gefunden, authentifiziere...")
 		if err := c.Authenticate(); err != nil {
-			return nil, fmt.Errorf("failed to authenticate: %v", err)
+			return nil, fmt.Errorf("Authentifizierung fehlgeschlagen: %v", err)
 		}
 	}
 
 	url := fmt.Sprintf("%s%s", c.BaseURL, endpoint)
-	jsonData, err := json.Marshal(data)
-	if err != nil {
-		return nil, err
+	var reqBody *bytes.Buffer
+	if data != nil {
+		jsonData, err := json.Marshal(data)
+		if err != nil {
+			return nil, fmt.Errorf("Fehler beim Marshalen der Anfrage-Daten: %v", err)
+		}
+		reqBody = bytes.NewBuffer(jsonData)
+	} else {
+		reqBody = bytes.NewBuffer(nil)
 	}
 
-	req, err := http.NewRequest(method, url, bytes.NewBuffer(jsonData))
+	req, err := http.NewRequest(method, url, reqBody)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("Fehler beim Erstellen der Anfrage: %v", err)
 	}
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Cookie", fmt.Sprintf("APIC-cookie=%s", c.Token))
@@ -105,29 +122,36 @@ func (c *Client) DoRequest(method, endpoint string, data interface{}) ([]byte, e
 	}
 	resp, err := client.Do(req)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("Fehler bei der Anfrage: %v", err)
 	}
 	defer resp.Body.Close()
-	body, _ := ioutil.ReadAll(resp.Body)
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("Fehler beim Lesen der Antwort: %v", err)
+	}
 
-	// Re-authenticate if 403 response and retry request
+	// Re-authentifiziere, wenn eine 403-Antwort empfangen wird, und versuche die Anfrage erneut
 	if resp.StatusCode == 403 {
-		log.Println("Token expired, re-authenticating...")
+		log.Println("Token abgelaufen, re-authentifiziere...")
 		if err := c.Authenticate(); err != nil {
-			return nil, fmt.Errorf("failed to re-authenticate: %v", err)
+			return nil, fmt.Errorf("Re-Authentifizierung fehlgeschlagen: %v", err)
 		}
 		req.Header.Set("Cookie", fmt.Sprintf("APIC-cookie=%s", c.Token))
 		resp, err = client.Do(req)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("Fehler bei der erneuten Anfrage nach Re-Authentifizierung: %v", err)
 		}
 		defer resp.Body.Close()
-		body, _ = ioutil.ReadAll(resp.Body)
+		body, err = ioutil.ReadAll(resp.Body)
+		if err != nil {
+			return nil, fmt.Errorf("Fehler beim Lesen der erneuten Antwort: %v", err)
+		}
 	}
 
 	if resp.StatusCode >= 400 {
-		return nil, fmt.Errorf("error from server: code=%d, status=%s", resp.StatusCode, resp.Status)
+		return nil, fmt.Errorf("Fehler vom Server: code=%d, status=%s", resp.StatusCode, resp.Status)
 	}
 
 	return body, nil
 }
+

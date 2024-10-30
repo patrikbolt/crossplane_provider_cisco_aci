@@ -4,16 +4,18 @@ import (
 	"flag"
 	"fmt"
 	"os"
-	"path/filepath"
 	"time"
 
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
-	"github.com/crossplane/crossplane-runtime/pkg/controller"
 	"github.com/crossplane/crossplane-runtime/pkg/logging"
-	"github.com/patrikbolt/crossplane_provider_cisco_aci/apis/tenant/epg/v1alpha1"
-	epgcontroller "github.com/patrikbolt/crossplane_provider_cisco_aci/internal/controller/tenant/epg"
+
+	// Import global API types
+	v1alpha1 "github.com/patrikbolt/crossplane_provider_cisco_aci/apis/v1alpha1"
+
+	// Import TenantEPG-Controller
+	epgcontroller "github.com/patrikbolt/crossplane_provider_cisco_aci/internal/controller/tenant_epg"
 )
 
 func main() {
@@ -43,21 +45,21 @@ func main() {
 		os.Exit(1)
 	}
 
-	// Register EPG API schema
+	// Register API schema
 	if err := v1alpha1.AddToScheme(mgr.GetScheme()); err != nil {
 		log.Error(err, "Error adding API schema")
 		os.Exit(1)
 	}
 
-	o := controller.Options{
+	o := epgcontroller.Options{
 		Logger:                  log,
 		MaxConcurrentReconciles: *maxReconcile,
 		PollInterval:            *pollInterval,
 	}
 
-	// Setup EPG controller
-	if err := epgcontroller.Setup(mgr, o); err != nil {
-		log.Error(err, "Error setting up EPG controller")
+	// Setup TenantEPG controller
+	if err := epgcontroller.SetupTenantEPGController(mgr, o); err != nil {
+		log.Error(err, "Error setting up TenantEPG controller")
 		os.Exit(1)
 	}
 
@@ -68,3 +70,4 @@ func main() {
 		os.Exit(1)
 	}
 }
+

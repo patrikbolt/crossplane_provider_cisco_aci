@@ -5,11 +5,24 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/scheme"
 )
 
-// SchemeGroupVersion ist die Gruppen- und Versionsdefinition
-var SchemeGroupVersion = schema.GroupVersion{Group: "ciscoaci.crossplane.io", Version: "v1alpha1"}
-
-// SchemeBuilder registriert die CRD-Typen mit dem Runtime-Schema
 var (
-	SchemeBuilder = &scheme.Builder{GroupVersion: SchemeGroupVersion}
-	AddToScheme   = SchemeBuilder.AddToScheme
+	// GroupVersion definiert die Gruppe und Version für die API
+	GroupVersion = schema.GroupVersion{Group: "ciscoaci.crossplane.io", Version: "v1alpha1"}
+
+	// SchemeBuilder registriert die API-Typen mit dem Runtime-Scheme
+	SchemeBuilder = &scheme.Builder{GroupVersion: GroupVersion}
+
+	// AddToScheme fügt die API-Typen zum gegebenen Scheme hinzu
+	AddToScheme = SchemeBuilder.AddToScheme
 )
+
+func init() {
+	SchemeBuilder.Register(
+		&ProviderConfig{},
+		&ProviderConfigList{},
+		&TenantEPG{},
+		&TenantEPGList{},
+		// add additional types here as example: Tenant_BD, Tenant_BDList, etc.
+	)
+}
+
