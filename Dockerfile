@@ -3,9 +3,6 @@ FROM golang:1.21 AS builder
 
 WORKDIR /workspace
 
-# Kopiert package.yaml ins Arbeitsverzeichnis
-COPY package.yaml /
-
 # Kopiere die Go-Moduldateien und lade die Abhängigkeiten
 COPY go.mod go.sum ./
 RUN go mod download
@@ -23,6 +20,9 @@ WORKDIR /
 
 # Kopiere das gebaute Binary aus der Build-Stage
 COPY --from=builder /workspace/provider .
+
+# Kopiere package.yaml ins finale Image
+COPY --from=builder /workspace/package.yaml .
 
 # Setze das EntryPoint
 ENTRYPOINT ["/provider"]
