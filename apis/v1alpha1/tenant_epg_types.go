@@ -5,13 +5,13 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-// TenantEPGSpec definiert den gewünschten Zustand eines TenantEPG.
+// TenantEPGSpec defines the wished State of TenantEPG
 type TenantEPGSpec struct {
 	xpv1.ResourceSpec `json:",inline"`
 	ForProvider       TenantEPGParameters `json:"forProvider"`
 }
 
-// TenantEPGParameters sind die konfigurierbaren Felder eines TenantEPG.
+// TenantEPGParameters are the configurable Fields of a TenantEPG
 type TenantEPGParameters struct {
 	Name       string `json:"name"`
 	Tenant     string `json:"tenant"`
@@ -20,7 +20,7 @@ type TenantEPGParameters struct {
 	Bd         string `json:"bd"`
 }
 
-// TenantEPGStatus definiert den beobachteten Zustand eines TenantEPG.
+// TenantEPGStatus defines the observed State of a TenantEPG
 type TenantEPGStatus struct {
 	xpv1.ResourceStatus `json:",inline"`
 }
@@ -28,7 +28,7 @@ type TenantEPGStatus struct {
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
 
-// TenantEPG ist das Schema für die TenantEPG API.
+// TenantEPG is the Schema for the TenantEPG API
 type TenantEPG struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
@@ -38,10 +38,9 @@ type TenantEPG struct {
 
 // +kubebuilder:object:root=true
 
-// TenantEPGList enthält eine Liste von TenantEPGs.
+// TenantEPGList contains a List of TenantEPGs
 type TenantEPGList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`
 	Items           []TenantEPG `json:"items"`
 }
-

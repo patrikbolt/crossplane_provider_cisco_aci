@@ -6,13 +6,13 @@ import (
 )
 
 var (
-	// GroupVersion definiert die Gruppe und Version für die API
+        // GroupVersion defines the Group and Version for the API
 	GroupVersion = schema.GroupVersion{Group: "ciscoaci.crossplane.io", Version: "v1alpha1"}
 
-	// SchemeBuilder registriert die API-Typen mit dem Runtime-Scheme
+        // SchemeBuilder registers teh API-Types with the Runtime-Scheme
 	SchemeBuilder = &scheme.Builder{GroupVersion: GroupVersion}
 
-	// AddToScheme fügt die API-Typen zum gegebenen Scheme hinzu
+        // AddToScheme adds the API-Types to the given Scheme
 	AddToScheme = SchemeBuilder.AddToScheme
 )
 

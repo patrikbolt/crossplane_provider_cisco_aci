@@ -5,27 +5,27 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-// ProviderConfigSpec spezifiziert die Konfiguration für den ACI Provider
+// ProviderConfigSpec specifies the Configuration for the ACI Provider
 type ProviderConfigSpec struct {
-	// URL der Cisco ACI API
+	// URL of the Cisco ACI API
 	URL string `json:"url"`
 
-	// CredentialsSecretRef verweist auf das Kubernetes Secret, das
-	// die Anmeldeinformationen (Benutzername und Passwort) für die Cisco ACI API enthält
+	// CredentialsSecretRef refers to the Kubernetes Secret, where
+	// the Login Credentials  (Username and Password) for the Cisco ACI API is stored
 	CredentialsSecretRef xpv1.SecretKeySelector `json:"credentialsSecretRef"`
 
-	// InsecureSkipVerify überspringt die SSL-Zertifikatüberprüfung, wenn auf true gesetzt
+	// InsecureSkipVerify when set to true skips the SSL Certificate Verification
 	InsecureSkipVerify bool `json:"insecureSkipVerify"`
 }
 
-// ProviderConfigStatus repräsentiert den Status der ProviderConfig
+// ProviderConfigStatus represents the Status of ProviderConfig
 type ProviderConfigStatus struct {
 	xpv1.ConditionedStatus `json:",inline"`
 }
 
 // +kubebuilder:object:root=true
 
-// ProviderConfig konfiguriert eine Verbindung zur Cisco ACI API
+// ProviderConfig configures the Connection to the Cisco ACI API
 type ProviderConfig struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
@@ -36,10 +36,9 @@ type ProviderConfig struct {
 
 // +kubebuilder:object:root=true
 
-// ProviderConfigList enthält eine Liste von ProviderConfig Objekten
+// ProviderConfigList contains a List of ProviderConfig Objects
 type ProviderConfigList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`
 	Items           []ProviderConfig `json:"items"`
 }
-
