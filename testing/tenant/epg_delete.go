@@ -6,7 +6,6 @@ import (
 	"log"
 
 	"github.com/patrikbolt/crossplane_provider_cisco_aci/internal/clients"
-	"github.com/patrikbolt/crossplane_provider_cisco_aci/internal/clients/tenant/epg"
 )
 
 func main() {
@@ -24,10 +23,11 @@ func main() {
 		log.Fatalf("Authentication failed: %v", err)
 	}
 
-	epgClient := epg.NewEPGClient(client)
-	err := epgClient.DeleteEPG(*tenant, *appProfile, *epgName)
+	epgClient := clients.NewTenantEPGClient(client)
+	err := epgClient.DeleteTenantEPG(*tenant, *appProfile, *epgName)
 	if err != nil {
 		log.Fatalf("Failed to delete EPG: %v", err)
 	}
 	fmt.Println("EPG deleted successfully!")
 }
+

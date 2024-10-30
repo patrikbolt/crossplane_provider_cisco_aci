@@ -6,7 +6,6 @@ import (
 	"log"
 
 	"github.com/patrikbolt/crossplane_provider_cisco_aci/internal/clients"
-	"github.com/patrikbolt/crossplane_provider_cisco_aci/internal/clients/tenant/epg"
 )
 
 func main() {
@@ -26,10 +25,11 @@ func main() {
 		log.Fatalf("Authentication failed: %v", err)
 	}
 
-	epgClient := epg.NewEPGClient(client)
-	err := epgClient.CreateEPG(*tenant, *appProfile, *epgName, *bd, *desc)
+	epgClient := clients.NewTenantEPGClient(client)
+	err := epgClient.CreateTenantEPG(*tenant, *appProfile, *epgName, *bd, *desc)
 	if err != nil {
 		log.Fatalf("Failed to create EPG: %v", err)
 	}
 	fmt.Println("EPG created successfully!")
 }
+

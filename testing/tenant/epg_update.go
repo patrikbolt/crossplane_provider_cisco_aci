@@ -5,7 +5,6 @@ import (
 	"fmt"
 
 	"github.com/patrikbolt/crossplane_provider_cisco_aci/internal/clients"
-	"github.com/patrikbolt/crossplane_provider_cisco_aci/internal/clients/tenant/epg"
 )
 
 func main() {
@@ -23,14 +22,21 @@ func main() {
 	// Create the ACI client
 	client := clients.NewClient(*baseURL, *username, *password, *skipSSLVerify)
 
+	// Authenticate the client
+	if err := client.Authenticate(); err != nil {
+		fmt.Printf("Authentication failed: %v\n", err)
+		return
+	}
+
 	// Create the EPG client
-	epgClient := epg.NewEPGClient(client)
+	epgClient := clients.NewTenantEPGClient(client)
 
 	// Update the EPG with the specified parameters
-	err := epgClient.UpdateEPG(*tenant, *appProfile, *epgName, *bd, *desc)
+	err := epgClient.UpdateTenantEPG(*tenant, *appProfile, *epgName, *bd, *desc)
 	if err != nil {
 		fmt.Printf("Error updating EPG: %v\n", err)
 	} else {
 		fmt.Println("EPG updated successfully!")
 	}
 }
+

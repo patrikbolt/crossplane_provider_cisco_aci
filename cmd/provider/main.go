@@ -15,7 +15,7 @@ import (
 	v1alpha1 "github.com/patrikbolt/crossplane_provider_cisco_aci/apis/v1alpha1"
 
 	// Import TenantEPG-Controller
-	epgcontroller "github.com/patrikbolt/crossplane_provider_cisco_aci/internal/controller/tenant_epg"
+	epgcontroller "github.com/patrikbolt/crossplane_provider_cisco_aci/internal/controller"
 )
 
 func main() {

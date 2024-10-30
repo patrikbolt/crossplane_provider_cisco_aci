@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"time"
 
 	xpv1 "github.com/crossplane/crossplane-runtime/apis/common/v1"
 	"github.com/crossplane/crossplane-runtime/pkg/event"
@@ -18,7 +19,6 @@ import (
 	v1alpha1 "github.com/patrikbolt/crossplane_provider_cisco_aci/apis/v1alpha1"
 
 	"github.com/patrikbolt/crossplane_provider_cisco_aci/internal/clients"
-	epgclient "github.com/patrikbolt/crossplane_provider_cisco_aci/internal/clients"
 
 	corev1 "k8s.io/api/core/v1"
 )
@@ -30,12 +30,12 @@ type Options struct {
 	PollInterval            time.Duration
 }
 
-// Setup richtet den TenantEPG-Controller mit dem Manager ein.
+// SetupTenantEPGController richtet den TenantEPG-Controller mit dem Manager ein.
 func SetupTenantEPGController(mgr ctrl.Manager, o Options) error {
 	name := managed.ControllerName(v1alpha1.TenantEPGGroupKind)
 
 	// Definieren des Controllers mit den gewünschten Optionen
-	c, err := ctrl.NewControllerManagedBy(mgr).
+	_, err := ctrl.NewControllerManagedBy(mgr).
 		Named(name).
 		For(&v1alpha1.TenantEPG{}).
 		WithOptions(ctrl.Options{
@@ -52,8 +52,6 @@ func SetupTenantEPGController(mgr ctrl.Manager, o Options) error {
 	if err != nil {
 		return errors.Wrap(err, "cannot create TenantEPG controller")
 	}
-
-	// Optional: Implementieren Sie PollInterval falls notwendig mit externen Mechanismen
 
 	return nil
 }
@@ -104,11 +102,11 @@ func (c *connector) Connect(ctx context.Context, mg managed.Managed) (managed.Ex
 	// Client erstellen
 	apiClient := c.newClientFn(pc.Spec.URL, creds.Username, creds.Password, insecureSkipVerify)
 
-	return &external{client: epgclient.NewEPGClient(apiClient)}, nil
+	return &external{client: clients.NewTenantEPGClient(apiClient)}, nil
 }
 
 type external struct {
-	client *clients.EPGClient
+	client *clients.TenantEPGClient
 }
 
 func (c *external) Observe(ctx context.Context, mg managed.Managed) (managed.ExternalObservation, error) {
@@ -117,10 +115,10 @@ func (c *external) Observe(ctx context.Context, mg managed.Managed) (managed.Ext
 		return managed.ExternalObservation{}, errors.New("managed resource is not a TenantEPG")
 	}
 
-	// ObserveEPG mit tenant, appProfile, epgName aufrufen
-	exists, err := c.client.ObserveEPG(cr.Spec.ForProvider.Tenant, cr.Spec.ForProvider.AppProfile, cr.Spec.ForProvider.Name)
+	// ObserveTenantEPG mit tenant, appProfile, epgName aufrufen
+	exists, err := c.client.ObserveTenantEPG(cr.Spec.ForProvider.Tenant, cr.Spec.ForProvider.AppProfile, cr.Spec.ForProvider.Name)
 	if err != nil {
-		// Wenn das EPG nicht gefunden wird, setzen wir ResourceExists auf false
+		// Wenn das TenantEPG nicht gefunden wird, setzen wir ResourceExists auf false
 		if !exists {
 			return managed.ExternalObservation{
 				ResourceExists: false,
@@ -141,8 +139,8 @@ func (c *external) Create(ctx context.Context, mg managed.Managed) (managed.Exte
 		return managed.ExternalCreation{}, errors.New("managed resource is not a TenantEPG")
 	}
 
-	// CreateEPG mit tenant, appProfile, epgName, bd, desc aufrufen
-	err := c.client.CreateEPG(cr.Spec.ForProvider.Tenant, cr.Spec.ForProvider.AppProfile, cr.Spec.ForProvider.Name, cr.Spec.ForProvider.Bd, cr.Spec.ForProvider.Desc)
+	// CreateTenantEPG mit tenant, appProfile, epgName, bd, desc aufrufen
+	err := c.client.CreateTenantEPG(cr.Spec.ForProvider.Tenant, cr.Spec.ForProvider.AppProfile, cr.Spec.ForProvider.Name, cr.Spec.ForProvider.Bd, cr.Spec.ForProvider.Desc)
 	if err != nil {
 		return managed.ExternalCreation{}, err
 	}
@@ -156,8 +154,8 @@ func (c *external) Update(ctx context.Context, mg managed.Managed) (managed.Exte
 		return managed.ExternalUpdate{}, errors.New("managed resource is not a TenantEPG")
 	}
 
-	// UpdateEPG mit tenant, appProfile, epgName, bd, desc aufrufen
-	err := c.client.UpdateEPG(cr.Spec.ForProvider.Tenant, cr.Spec.ForProvider.AppProfile, cr.Spec.ForProvider.Name, cr.Spec.ForProvider.Bd, cr.Spec.ForProvider.Desc)
+	// UpdateTenantEPG mit tenant, appProfile, epgName, bd, desc aufrufen
+	err := c.client.UpdateTenantEPG(cr.Spec.ForProvider.Tenant, cr.Spec.ForProvider.AppProfile, cr.Spec.ForProvider.Name, cr.Spec.ForProvider.Bd, cr.Spec.ForProvider.Desc)
 	if err != nil {
 		return managed.ExternalUpdate{}, err
 	}
@@ -171,8 +169,8 @@ func (c *external) Delete(ctx context.Context, mg managed.Managed) error {
 		return errors.New("managed resource is not a TenantEPG")
 	}
 
-	// DeleteEPG mit tenant, appProfile, epgName aufrufen
-	err := c.client.DeleteEPG(cr.Spec.ForProvider.Tenant, cr.Spec.ForProvider.AppProfile, cr.Spec.ForProvider.Name)
+	// DeleteTenantEPG mit tenant, appProfile, epgName aufrufen
+	err := c.client.DeleteTenantEPG(cr.Spec.ForProvider.Tenant, cr.Spec.ForProvider.AppProfile, cr.Spec.ForProvider.Name)
 	if err != nil {
 		return err
 	}
