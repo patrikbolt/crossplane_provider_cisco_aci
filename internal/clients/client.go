@@ -72,7 +72,7 @@ func (c *Client) Authenticate() error {
 	if !ok {
 		return fmt.Errorf("authentication failed: missing token")
 	}
-	log.Printf("Authenticated successfully. Token: %s", c.Token)
+	log.Println("Authenticated successfully.")
 	return nil
 }
 
