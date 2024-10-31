@@ -7,7 +7,7 @@ import (
 
 // TenantEPGSpec defines the desired state of TenantEPG.
 type TenantEPGSpec struct {
-    xpv1.ResourceSpec `json:",inline"`
+    xpv1.ResourceSpec `json:",inline"` // Korrekte Verwendung der Ressourcenspezifikation
     ForProvider       TenantEPGParameters `json:"forProvider"`
 }
 
@@ -22,7 +22,7 @@ type TenantEPGParameters struct {
 
 // TenantEPGStatus defines the observed state of TenantEPG.
 type TenantEPGStatus struct {
-    xpv1.ResourceStatus `json:",inline"`
+    xpv1.ResourceStatus `json:",inline"` // Korrekte Verwendung der Ressourcenstatus
 }
 
 // +kubebuilder:object:root=true
@@ -32,13 +32,14 @@ type TenantEPGStatus struct {
 type TenantEPG struct {
     metav1.TypeMeta   `json:",inline"`
     metav1.ObjectMeta `json:"metadata,omitempty"`
-    Spec              TenantEPGSpec   `json:"spec"`
-    Status            TenantEPGStatus `json:"status,omitempty"`
+
+    Spec              xpv1.ResourceSpec   `json:"spec"`
+    Status            xpv1.ResourceStatus `json:"status,omitempty"`
 }
 
 // +kubebuilder:object:root=true
 
-// TenantEPGList contains a list of TenantEPGs.
+// TenantEPGList contains a list of TenantEPG objects.
 type TenantEPGList struct {
     metav1.TypeMeta `json:",inline"`
     metav1.ListMeta `json:"metadata,omitempty"`

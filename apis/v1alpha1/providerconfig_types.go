@@ -30,8 +30,8 @@ type ProviderConfig struct {
     metav1.TypeMeta   `json:",inline"`
     metav1.ObjectMeta `json:"metadata,omitempty"`
 
-    Spec   ProviderConfigSpec   `json:"spec"`
-    Status ProviderConfigStatus `json:"status,omitempty"`
+    Spec   xpv1.ResourceSpec  `json:"spec,omitempty"`
+    Status xpv1.ResourceStatus `json:"status,omitempty"`
 }
 
 // +kubebuilder:object:root=true
@@ -42,4 +42,3 @@ type ProviderConfigList struct {
     metav1.ListMeta `json:"metadata,omitempty"`
     Items           []ProviderConfig `json:"items"`
 }
-
